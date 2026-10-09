@@ -43,10 +43,12 @@ pglDisplay ::~pglDisplay()
 {
     /* release and free the device context and rendering context */
 #if SDL_MAJOR_VERSION < 3
-    SDL_GL_DeleteContext(hRC);
+    if (hRC)
+        SDL_GL_DeleteContext(hRC);
     SDL_SetWindowGammaRamp(win, initialGammaRamp[0], initialGammaRamp[1], initialGammaRamp[2]);
 #else
-    SDL_GL_DestroyContext((SDL_GLContext)hRC);
+    if (hRC)
+        SDL_GL_DestroyContext((SDL_GLContext)hRC);
 #endif
 }
 
@@ -64,6 +66,7 @@ long pglDisplay ::ProcessWindowMessage(SDL_Window* win, const SDL_WindowEvent* e
         case SDL_WINDOWEVENT_CLOSE:
             /* release and free the device context and rendering context */
             SDL_GL_DeleteContext(hRC);
+            hRC = NULL;
             break;
 
 		default:
@@ -79,6 +82,7 @@ long pglDisplay ::ProcessWindowMessage(SDL_Window* win, const SDL_WindowEvent* e
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             /* release and free the device context and rendering context */
             SDL_GL_DestroyContext((SDL_GLContext)hRC);
+            hRC = NULL;
             break;
 
         default:

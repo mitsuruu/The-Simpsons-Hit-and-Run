@@ -98,7 +98,9 @@ PositionalSoundPlayer::PositionalSoundPlayer( ) :
 //=============================================================================
 PositionalSoundPlayer::~PositionalSoundPlayer()
 {
-    delete m_positionCarrier;
+    // The position carrier owns this player (it's always the object that
+    // contains it), so it must not be deleted here.
+    m_positionCarrier = NULL;
 
     if( m_positionalSettings != NULL )
     {

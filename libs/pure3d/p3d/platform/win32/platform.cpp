@@ -206,8 +206,14 @@ P3D_U64 tPlatform::GetTime(void)
 bool tPlatform::ProcessWindowsMessage(SDL_Window* win, const SDL_WindowEvent* event)
 {
     for(int i = 0; i < nContexts; i++)
+    {
+        // Window events can arrive while a context is still being created,
+        // e.g. iOS updates the safe area while the GL context is set up
+        if(contexts[i].context == NULL || contexts[i].context->RenderDisplay == NULL)
+            continue;
         //if(contexts[i].windowHandle == win)
             return contexts[i].context->RenderDisplay->ProcessWindowMessage(win, event) != 0;
+    }
 
     return false;
 }

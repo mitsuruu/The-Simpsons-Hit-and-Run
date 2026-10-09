@@ -22,5 +22,10 @@ tAmbientLight::~tAmbientLight()
 
 void tAmbientLight::Update(void)
 {
+   // Like the other light types, only touch PDDI once activated. Lights are
+   // created on the loader thread, which has no GL context on macOS.
+   if(!active)
+       return;
+
    p3d::pddi->SetAmbientLight(colour);
 }
