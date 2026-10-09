@@ -36,6 +36,11 @@ if(VITA)
 	set(VITA_VERSION ${SRR2_VERSION})
 endif()
 
+if(APPLE)
+	# Prefer OpenAL Soft over Apple's deprecated OpenAL framework
+	set(CMAKE_FIND_FRAMEWORK LAST)
+endif()
+
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -188,5 +193,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
 		ICON ${PROJECT_NAME}.jpg
 		NACP ${PROJECT_NAME}.nacp
 		ROMFS romfs
+	)
+endif()
+
+if(APPLE)
+	# The title is substituted into Info.plist unescaped
+	string(REPLACE "&" "&amp;" SRR2_PLIST_TITLE "${SRR2_TITLE}")
+	set_target_properties(${PROJECT_NAME} PROPERTIES
+		MACOSX_BUNDLE TRUE
+		OUTPUT_NAME ${SRR2_FILENAME}
+		MACOSX_BUNDLE_BUNDLE_NAME "${SRR2_PLIST_TITLE}"
+		MACOSX_BUNDLE_GUI_IDENTIFIER "com.radical.simpsons.${SRR2_REGION}"
+		XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.radical.simpsons.${SRR2_REGION}"
+		MACOSX_BUNDLE_BUNDLE_VERSION ${SRR2_VERSION}
+		MACOSX_BUNDLE_SHORT_VERSION_STRING ${SRR2_VERSION}
 	)
 endif()

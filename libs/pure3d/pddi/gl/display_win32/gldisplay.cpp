@@ -14,7 +14,7 @@
 
 bool pglDisplay::CheckExtension( const char *extName )
 {
-    return SDL_GL_ExtensionSupported(extName) == SDL_TRUE;
+    return SDL_GL_ExtensionSupported(extName);
 }
 
 pglDisplay ::pglDisplay(pddiDisplayInfo* info)
@@ -46,10 +46,12 @@ pglDisplay ::~pglDisplay()
 {
     /* release and free the device context and rendering context */
 #if SDL_MAJOR_VERSION < 3
-    SDL_GL_DeleteContext(hRC);
+    if (hRC)
+        SDL_GL_DeleteContext(hRC);
     SDL_SetWindowGammaRamp(win, initialGammaRamp[0], initialGammaRamp[1], initialGammaRamp[2]);
 #else
-    SDL_GL_DestroyContext((SDL_GLContext)hRC);
+    if (hRC)
+        SDL_GL_DestroyContext((SDL_GLContext)hRC);
 #endif
 }
 
@@ -67,6 +69,7 @@ long pglDisplay ::ProcessWindowMessage(SDL_Window* win, const SDL_WindowEvent* e
         case SDL_WINDOWEVENT_CLOSE:
             /* release and free the device context and rendering context */
             SDL_GL_DeleteContext(hRC);
+            hRC = NULL;
             break;
 
 		default:
@@ -77,11 +80,12 @@ long pglDisplay ::ProcessWindowMessage(SDL_Window* win, const SDL_WindowEvent* e
     {
         case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             SDL_GetWindowSizeInPixels( win, &winWidth, &winHeight );
-            break;
+                break;
 
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             /* release and free the device context and rendering context */
             SDL_GL_DestroyContext((SDL_GLContext)hRC);
+            hRC = NULL;
             break;
 
         default:
@@ -96,7 +100,9 @@ long pglDisplay ::ProcessWindowMessage(SDL_Window* win, const SDL_WindowEvent* e
 
 void pglDisplay ::SetWindow(SDL_Window* wnd)
 {
+#if SDL_MAJOR_VERSION < 3
     SDL_GetWindowGammaRamp(wnd, initialGammaRamp[0], initialGammaRamp[1], initialGammaRamp[2]);
+#endif
     win = wnd;
 }
 
@@ -163,14 +169,23 @@ bool pglDisplay ::InitDisplay(const pddiDisplayInit* init)
     SDL_DisplayMode displayMode = {}, closestMode = {};
     displayMode.w = x;
     displayMode.h = y;
+#if SDL_MAJOR_VERSION < 3
     SDL_DisplayMode* pDisplayMode = SDL_GetClosestDisplayMode(displayInfo->id, &displayMode, &closestMode);
     if (pDisplayMode)
         SDL_SetWindowDisplayMode(win, pDisplayMode);
+#else
+    if(SDL_GetClosestFullscreenDisplayMode((SDL_DisplayID)displayInfo->id, x, y, 0.0f, false, &closestMode))
+        SDL_SetWindowFullscreenMode(win, &closestMode);
+#endif
 
 #ifndef __SWITCH__
     SDL_SetWindowFullscreen(win, mode == PDDI_DISPLAY_FULLSCREEN ? SDL_WINDOW_FULLSCREEN : 0);
 #endif
+#if SDL_MAJOR_VERSION < 3
     SDL_GL_GetDrawableSize( win, &winWidth, &winHeight );
+#else
+    SDL_GetWindowSizeInPixels( win, &winWidth, &winHeight );
+#endif
     winBitDepth = bpp;
 
     if (hRC)
@@ -192,7 +207,7 @@ bool pglDisplay ::InitDisplay(const pddiDisplayInit* init)
     else
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
 #ifndef RAD_VITA
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, SDL_TRUE);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 #ifdef RAD_DEBUG
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 #endif
@@ -382,13 +397,23 @@ void pglDisplay::BeginContext(void)
 {
     prevRC = SDL_GL_GetCurrentContext();
     PDDIASSERT(prevRC != hRC);
+#if SDL_MAJOR_VERSION < 3
     int error = SDL_GL_MakeCurrent(win, hRC);
     PDDIASSERT(!error);
+#else
+    bool success = SDL_GL_MakeCurrent(win, (SDL_GLContext)hRC);
+    PDDIASSERT(success);
+#endif
 }
 
 void pglDisplay::EndContext(void)
 {
+#if SDL_MAJOR_VERSION < 3
     int error = SDL_GL_MakeCurrent(win, prevRC);
     PDDIASSERT(!error);
+#else
+    bool success = SDL_GL_MakeCurrent(win, (SDL_GLContext)prevRC);
+    PDDIASSERT(success);
+#endif
 }
 

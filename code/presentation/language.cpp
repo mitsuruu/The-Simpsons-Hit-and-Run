@@ -31,6 +31,8 @@
 #ifdef RAD_VITA
     #include <psp2/apputil.h>
     #include <psp2/system_param.h>
+#elif defined RAD_WIN32
+    #include <SDL.h>
 #endif
 
 //========================================
@@ -292,7 +294,42 @@ Language GetHardwareLanguage()
     ////////////////////////////////////////////////////////////
     // WIN32
     ////////////////////////////////////////////////////////////
-    return UNKNOWN;     // to be implemented.
+    #if SDL_MAJOR_VERSION < 3
+    SDL_Locale* locales = SDL_GetPreferredLocales();
+    const SDL_Locale* locale = locales;
+    #else
+    SDL_Locale** locales = SDL_GetPreferredLocales( NULL );
+    const SDL_Locale* locale = locales ? locales[ 0 ] : NULL;
+    #endif
+    if( locale == NULL || locale->language == NULL )
+    {
+        SDL_free( locales );
+        return UNKNOWN;
+    }
+
+    static const struct { const char* code; Language language; } s_LocaleMap[] =
+    {
+        { "en", ENGLISH },
+        { "fr", FRENCH },
+        { "de", GERMAN },
+        { "it", ITALIAN },
+        { "es", SPANISH },
+        { "nl", DUTCH },
+        { "ja", JAPANESE },
+        { "pt", PORTUGUESE }
+    };
+
+    Language result = UNKNOWN;
+    for( unsigned int i = 0; i < sizeof( s_LocaleMap ) / sizeof( s_LocaleMap[ 0 ] ); i++ )
+    {
+        if( SDL_strcmp( locale->language, s_LocaleMap[ i ].code ) == 0 )
+        {
+            result = s_LocaleMap[ i ].language;
+            break;
+        }
+    }
+    SDL_free( locales );
+    return result;
     #endif
 }
 

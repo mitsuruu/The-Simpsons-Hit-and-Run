@@ -25,6 +25,11 @@
 #include <switch.h>
 #endif
 
+#ifdef __APPLE__
+#include <unistd.h>
+#include <SDL.h>
+#endif
+
 #ifdef RAD_VITA
 #include <unistd.h>
 #include <psp2/kernel/clib.h>
@@ -81,6 +86,23 @@ extern "C" int main( int argc, char *argv[] )
 #endif
 #ifdef RAD_VITA
 	chdir( "ux0:data/simpsons" );
+#endif
+#ifdef __APPLE__
+    // A bundled app is launched with "/" as the working directory, so look
+    // for the game data in ~/Library/Application Support/Simpsons instead.
+    const char* basePath = SDL_GetBasePath();
+    if( basePath != NULL && strstr( basePath, ".app/" ) != NULL )
+    {
+        char* prefPath = SDL_GetPrefPath( "", "Simpsons" );
+        if( prefPath != NULL )
+        {
+            chdir( prefPath );
+            SDL_free( prefPath );
+        }
+    }
+#if SDL_MAJOR_VERSION < 3
+    SDL_free( (void*)basePath );
+#endif
 #endif
 
     //

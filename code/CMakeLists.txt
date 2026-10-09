@@ -589,6 +589,19 @@ else()
 	target_link_libraries(${PROJECT_NAME} PkgConfig::FFmpeg)
 endif()
 
+if(APPLE)
+	# Bundle the port's custom UI art, it's loaded through the APP: drive
+	if(EXISTS "${CMAKE_SOURCE_DIR}/art")
+		add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_directory
+				"${CMAKE_SOURCE_DIR}/art"
+				"$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/art"
+		)
+	else()
+		message(WARNING "No art folder found, the custom UI art won't be bundled")
+	endif()
+endif()
+
 option(SRR2_USE_PCH ON)
 if (SRR2_USE_PCH)
 	target_precompile_headers(${PROJECT_NAME} PRIVATE "main/pchsrr2.h")

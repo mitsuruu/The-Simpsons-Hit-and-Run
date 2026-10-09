@@ -35,6 +35,9 @@
 #include <unistd.h>
 #endif
 #endif
+#ifdef __APPLE__
+#include <unistd.h>
+#endif
 
 //=============================================================================
 // Public Functions 
@@ -106,6 +109,31 @@ radSdlDrive::radSdlDrive( const char* pdrivespec, radMemoryAllocator alloc )
         SDL_strupr( m_DriveName );
         SDL_strlwr( m_DrivePath );
     }
+
+#ifdef __APPLE__
+    //
+    // The APP: drive holds the port's custom UI art inside the app bundle,
+    // fall back to the game data if it wasn't bundled.
+    //
+    if ( strcmp( m_DriveName, "APP:" ) == 0 )
+    {
+        m_DrivePath[ 0 ] = '\0';
+        const char* basePath = SDL_GetBasePath();
+        if ( basePath != NULL )
+        {
+            std::string artPath( basePath );
+            artPath += "art/frontend/scrooby/ingame.p3d";
+            if ( access( artPath.c_str(), R_OK ) == 0 )
+            {
+                strncpy( m_DrivePath, basePath, radFileFilenameMax );
+                m_DrivePath[ radFileFilenameMax ] = '\0';
+            }
+#if SDL_MAJOR_VERSION < 3
+            SDL_free( (void*)basePath );
+#endif
+        }
+    }
+#endif
 
     if(!m_DrivePath[0])
     {

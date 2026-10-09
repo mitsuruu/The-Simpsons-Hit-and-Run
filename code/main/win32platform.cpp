@@ -336,6 +336,14 @@ bool Win32Platform::InitializeWindow()
     // Support switching between docked and handheld mode
     flags |= SDL_WINDOW_RESIZABLE;
 #endif
+#ifdef __APPLE__
+    // Render at native resolution on Retina displays
+#if SDL_MAJOR_VERSION < 3
+    flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#else
+    flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#endif
+#endif
     int w, h;
     TranslateResolution( StartingResolution, w, h );
 #if SDL_MAJOR_VERSION < 3
