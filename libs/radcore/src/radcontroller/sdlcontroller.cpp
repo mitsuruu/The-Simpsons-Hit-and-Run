@@ -36,6 +36,18 @@
 
 #include <SDL.h>
 
+#if SDL_MAJOR_VERSION < 3
+typedef SDL_GameController SDLPad;
+#else
+typedef SDL_Gamepad SDLPad;
+#endif
+
+// On desktop platforms the controller in Port0 is always connected and also
+// reads the keyboard, so the game is playable without a gamepad.
+#if !defined( __SWITCH__ ) && !defined( RAD_VITA )
+#define SDL_KEYBOARD_CONTROLLER
+#endif
+
 //============================================================================
 // Internal Interfaces
 //============================================================================
@@ -47,6 +59,7 @@ struct IRadControllerInputPointSDL
 	virtual void iInitialize( void ) = 0;
     virtual void iVirtualTimeReMapped( unsigned int virtualTime ) = 0;
     virtual void iVirtualTimeChanged( unsigned int virtualTime ) = 0;
+    virtual void iSetGamepad( SDLPad * pController ) = 0;
 };
 
 struct IRadControllerSDL
@@ -57,6 +70,9 @@ struct IRadControllerSDL
     virtual void iVirtualTimeReMapped( unsigned int virtualTime ) = 0;
     virtual void iVirtualTimeChanged( unsigned int virtualTime ) = 0;
     virtual void iSetBufferTime( unsigned int milliseconds, unsigned int pollingRate ) = 0;
+    virtual bool iHasKeyboard( void ) = 0;
+    virtual SDLPad * iGetGamepad( void ) = 0;
+    virtual void iSetGamepad( SDLPad * pController ) = 0;
 };
 
 //============================================================================
@@ -138,6 +154,57 @@ static SDLInputPoint g_SDLPoints[] =
     { g_Sdlipt[ 3 ], "RightStickY",      SDL_GAMEPAD_AXIS_RIGHTY }
 #endif
 };
+
+//
+// Keyboard bindings for the input points above. Buttons are pressed when
+// either key is down, axes use the first key for the positive direction
+// (right/down) and the second key for the negative direction (left/up).
+//
+struct SDLKeyBinding
+{
+    const char * m_pName;
+    SDL_Scancode m_Keys[ 2 ];
+};
+
+static const SDLKeyBinding g_SDLKeyBindings[] =
+{
+    { "DPadUp",       { SDL_SCANCODE_UP,     SDL_SCANCODE_UNKNOWN } },
+    { "DPadDown",     { SDL_SCANCODE_DOWN,   SDL_SCANCODE_UNKNOWN } },
+    { "DPadLeft",     { SDL_SCANCODE_LEFT,   SDL_SCANCODE_UNKNOWN } },
+    { "DPadRight",    { SDL_SCANCODE_RIGHT,  SDL_SCANCODE_UNKNOWN } },
+    { "Start",        { SDL_SCANCODE_ESCAPE, SDL_SCANCODE_UNKNOWN } },
+    { "Back",         { SDL_SCANCODE_R,      SDL_SCANCODE_UNKNOWN } },
+    { "RightThumb",   { SDL_SCANCODE_V,      SDL_SCANCODE_UNKNOWN } },
+    { "A",            { SDL_SCANCODE_SPACE,  SDL_SCANCODE_RETURN } },
+    { "B",            { SDL_SCANCODE_LSHIFT, SDL_SCANCODE_BACKSPACE } },
+    { "X",            { SDL_SCANCODE_F,      SDL_SCANCODE_UNKNOWN } },
+    { "Y",            { SDL_SCANCODE_E,      SDL_SCANCODE_UNKNOWN } },
+    { "Black",        { SDL_SCANCODE_C,      SDL_SCANCODE_UNKNOWN } },
+    { "White",        { SDL_SCANCODE_H,      SDL_SCANCODE_UNKNOWN } },
+    { "LeftTrigger",  { SDL_SCANCODE_Q,      SDL_SCANCODE_UNKNOWN } },
+    { "RightTrigger", { SDL_SCANCODE_TAB,    SDL_SCANCODE_UNKNOWN } },
+    { "LeftStickX",   { SDL_SCANCODE_D,      SDL_SCANCODE_A } },
+    { "LeftStickY",   { SDL_SCANCODE_S,      SDL_SCANCODE_W } },
+    { "RightStickX",  { SDL_SCANCODE_L,      SDL_SCANCODE_J } },
+    { "RightStickY",  { SDL_SCANCODE_K,      SDL_SCANCODE_I } }
+};
+
+static const SDLKeyBinding * FindKeyBinding( const char * pName )
+{
+    for ( unsigned int i = 0; i < ( sizeof( g_SDLKeyBindings ) / sizeof( SDLKeyBinding ) ); i++ )
+    {
+        if ( strcmp( g_SDLKeyBindings[ i ].m_pName, pName ) == 0 )
+        {
+            return &g_SDLKeyBindings[ i ];
+        }
+    }
+    return NULL;
+}
+
+static bool IsKeyDown( SDL_Scancode key )
+{
+    return key != SDL_SCANCODE_UNKNOWN && SDL_GetKeyboardState( NULL )[ key ];
+}
 
 static class radControllerSystemSDL* s_pTheSDLControllerSystem2 = NULL;
 static radMemoryAllocator g_ControllerSystemAllocator = RADMEMORY_ALLOC_DEFAULT;
@@ -314,19 +381,46 @@ class radControllerInputPointSDL
                 }
 
                 newValue += 0.5f;
-
-#if SDL_MAJOR_VERSION < 3
-                if ( m_Identifier == SDL_CONTROLLER_AXIS_LEFTY || m_Identifier == SDL_CONTROLLER_AXIS_RIGHTY )
-#else
-                if ( m_Identifier == SDL_GAMEPAD_AXIS_LEFTY || m_Identifier == SDL_GAMEPAD_AXIS_RIGHTY )
-#endif
-                {
-                    newValue = 1.0f - newValue;
-                }
             }
             else
             {
                 rAssert( 0 );
+            }
+        }
+
+        bool isAxis = ( m_pType == g_Sdlipt[ 2 ] ) || ( m_pType == g_Sdlipt[ 3 ] );
+
+        if ( m_pKeyBinding != NULL )
+        {
+            if ( isAxis )
+            {
+                if ( m_pController == NULL )
+                {
+                    newValue = 0.5f; // Centred
+                }
+
+                int direction = ( IsKeyDown( m_pKeyBinding->m_Keys[ 0 ] ) ? 1 : 0 ) -
+                                ( IsKeyDown( m_pKeyBinding->m_Keys[ 1 ] ) ? 1 : 0 );
+                if ( direction != 0 )
+                {
+                    newValue = 0.5f + 0.5f * direction;
+                }
+            }
+            else if ( IsKeyDown( m_pKeyBinding->m_Keys[ 0 ] ) || IsKeyDown( m_pKeyBinding->m_Keys[ 1 ] ) )
+            {
+                newValue = 1.0f;
+            }
+        }
+
+        if ( isAxis && ( m_pController != NULL || m_pKeyBinding != NULL ) )
+        {
+#if SDL_MAJOR_VERSION < 3
+            if ( m_Identifier == SDL_CONTROLLER_AXIS_LEFTY || m_Identifier == SDL_CONTROLLER_AXIS_RIGHTY )
+#else
+            if ( m_Identifier == SDL_GAMEPAD_AXIS_LEFTY || m_Identifier == SDL_GAMEPAD_AXIS_RIGHTY )
+#endif
+            {
+                newValue = 1.0f - newValue;
             }
         }
 
@@ -391,6 +485,15 @@ class radControllerInputPointSDL
 
             m_TimeInState = virtualTime - m_TimeOfStateChange;
         }
+    }
+
+    //========================================================================
+    // radControllerInputPointSDL::iSetGamepad
+    //========================================================================
+
+    virtual void iSetGamepad( SDLPad * pController )
+    {
+        m_pController = pController;
     }
 
     //========================================================================
@@ -591,11 +694,7 @@ class radControllerInputPointSDL
     //========================================================================
     // radControllerInputPointSDL::radControllerInputPointSDL
     //========================================================================
-#if SDL_MAJOR_VERSION < 3
-    radControllerInputPointSDL( SDL_GameController * pController, const char * pType, const char * pName, int id )
-#else
-    radControllerInputPointSDL( SDL_Gamepad * pController, const char * pType, const char * pName, int id )
-#endif
+    radControllerInputPointSDL( SDLPad * pController, bool hasKeyboard, const char * pType, const char * pName, int id )
         :
         radRefCount( 0 ),
         m_Value( 0.0f ),
@@ -607,7 +706,8 @@ class radControllerInputPointSDL
         m_pType( pType ),
         m_pName( pName ),
         m_Identifier( id ),
-        m_pController( pController )
+        m_pController( pController ),
+        m_pKeyBinding( hasKeyboard ? FindKeyBinding( pName ) : NULL )
     {
         radMemoryMonitorIdentifyAllocation( this, g_nameFTech, "radControllerInputPointSDL" );
         
@@ -643,11 +743,8 @@ class radControllerInputPointSDL
     const char * m_pName;
 
     int m_Identifier;
-#if SDL_MAJOR_VERSION < 3
-    SDL_GameController * m_pController;
-#else
-    SDL_Gamepad * m_pController;
-#endif
+    SDLPad * m_pController;
+    const SDLKeyBinding * m_pKeyBinding;
 
     ref< IRadObjectList > m_xIOl_Callbacks;
 };
@@ -708,7 +805,7 @@ class radControllerSDL
                     m_LeftGain =  newLeftGain;
                     m_RightGain = newRightGain;
 
-					rAssert(m_pController != NULL);
+					rAssert(m_pController != NULL || m_HasKeyboard);
 
                     int result = 0;
 					if(m_pController != NULL)
@@ -794,6 +891,11 @@ class radControllerSDL
 
     virtual bool IsConnected( void )
     {
+        if ( m_HasKeyboard )
+        {
+            return true;
+        }
+
 #if SDL_MAJOR_VERSION < 3
         return SDL_GameControllerGetAttached( m_pController ) == SDL_TRUE;
 #else
@@ -1085,18 +1187,16 @@ class radControllerSDL
     radControllerSDL
     (
         unsigned int thisAllocator,
-#if SDL_MAJOR_VERSION < 3
-        SDL_GameController * pController,
-#else
-        SDL_Gamepad * pController,
-#endif
+        SDLPad * pController,
+        bool hasKeyboard,
         unsigned int virtualTime,
         unsigned int bufferTime,
         unsigned int pollingRate
     )
         :
         radRefCount( 0 ),
-        m_pController( pController )
+        m_pController( pController ),
+        m_HasKeyboard( hasKeyboard )
     {
         radMemoryMonitorIdentifyAllocation( this, g_nameFTech, "radControllerSDL" );
 
@@ -1118,11 +1218,15 @@ class radControllerSDL
         //
         // Create our location name based on our port and slot
         //
+        int iController = 0; // The keyboard is always in Port0
+        if ( pController != NULL )
+        {
 #if SDL_MAJOR_VERSION < 3
-        int iController = std::max(SDL_GameControllerGetPlayerIndex( pController ), 0);
+            iController = std::max(SDL_GameControllerGetPlayerIndex( pController ), 0);
 #else
-        int iController = std::max(SDL_GetGamepadPlayerIndex( pController ), 0);
+            iController = std::max(SDL_GetGamepadPlayerIndex( pController ), 0);
 #endif
+        }
 		m_xIString_Location->SetSize( 12 );
         m_xIString_Location->Append( "Port" );
         m_xIString_Location->Append( (unsigned int) iController );
@@ -1138,6 +1242,7 @@ class radControllerSDL
 			ref< radControllerInputPointSDL > pInputPoint = new( g_ControllerSystemAllocator ) radControllerInputPointSDL
 			(
                 m_pController,
+                m_HasKeyboard,
                 g_SDLPoints[ button ].m_pType, 
                 g_SDLPoints[ button ].m_pName,
                 g_SDLPoints[ button ].m_Mask
@@ -1181,13 +1286,49 @@ class radControllerSDL
     }
 
     //========================================================================
+    // radControllerSDL::iHasKeyboard
+    //========================================================================
+
+    virtual bool iHasKeyboard( void )
+    {
+        return m_HasKeyboard;
+    }
+
+    //========================================================================
+    // radControllerSDL::iGetGamepad
+    //========================================================================
+
+    virtual SDLPad * iGetGamepad( void )
+    {
+        return m_pController;
+    }
+
+    //========================================================================
+    // radControllerSDL::iSetGamepad
+    //========================================================================
+
+    virtual void iSetGamepad( SDLPad * pController )
+    {
+        //
+        // Attach or detach a gamepad to the keyboard controller
+        //
+
+        m_pController = pController;
+        m_LeftGain = m_RightGain = 0;
+
+        IRadControllerInputPointSDL * pICip2;
+        m_xIOl_InputPoints->Reset( );
+        while ((pICip2 = reinterpret_cast< IRadControllerInputPointSDL * >( m_xIOl_InputPoints->GetNext( ) )))
+        {
+            pICip2->iSetGamepad( pController );
+        }
+    }
+
+    //========================================================================
     // radControllerSDL Data Members
     //========================================================================
-#if SDL_MAJOR_VERSION < 3
-    SDL_GameController *              m_pController;
-#else
-    SDL_Gamepad *                     m_pController;
-#endif
+    SDLPad *                          m_pController;
+    bool                              m_HasKeyboard;
 
     ref< IRadObjectList >             m_xIOl_InputPoints;
     ref< IRadObjectList >             m_xIOl_OutputPoints;
@@ -1296,6 +1437,7 @@ class radControllerSystemSDL
                 (
                     g_ControllerSystemAllocator,
                     pController,
+                    false,
                     virtualTime,
                     sys->m_EventBufferTime,
                     pollingRate
@@ -1305,6 +1447,14 @@ class radControllerSystemSDL
                 (
                     xIController2
                 );
+            }
+            else if ( xISDLController2->iHasKeyboard( ) && xISDLController2->iGetGamepad( ) == NULL )
+            {
+                //
+                // Attach the gamepad to the keyboard controller
+                //
+
+                xISDLController2->iSetGamepad( pController );
             }
             else
             {
@@ -1321,7 +1471,21 @@ class radControllerSystemSDL
 			//
             // Here a device has been removed
             //
-            if ( xIController2 != NULL )
+            if ( xISDLController2 != NULL && xISDLController2->iHasKeyboard( ) )
+            {
+                //
+                // The keyboard controller stays connected without a gamepad
+                //
+
+                if ( xISDLController2->iGetGamepad( ) != pController )
+                {
+                    sys->Release( );
+                    return false;
+                }
+
+                xISDLController2->iSetGamepad( NULL );
+            }
+            else if ( xIController2 != NULL )
             {
                 //We need to remove this from the set as the next thing to 
                 //plug in could be a new type of controller.
@@ -1664,6 +1828,30 @@ class radControllerSystemSDL
             RegisterConnectionChangeCallback( pConnectionChangeCallback );
         }
 
+#ifdef SDL_KEYBOARD_CONTROLLER
+        //
+        // The keyboard controller is always connected, gamepads are attached
+        // to it when they are assigned to the first port.
+        //
+
+        ref< IRadControllerSDL > xIKeyboardController = new (g_ControllerSystemAllocator) radControllerSDL
+        (
+            g_ControllerSystemAllocator,
+            NULL,
+            true,
+            radTimeGetMilliseconds() + m_VirtualTimeAdjust,
+            m_EventBufferTime,
+            m_xITimer != NULL ? m_xITimer->GetTimeout() : 10
+        );
+
+        m_xIOl_Controllers->AddObject
+        (
+            xIKeyboardController
+        );
+
+        NotifyConnectionStatusChange( xIKeyboardController );
+#endif
+
         //
         // TODO: If there is no connection change callback, wait synchronously for the connection
         //
@@ -1692,14 +1880,28 @@ class radControllerSystemSDL
                     pollingRate = m_xITimer->GetTimeout();
                 }
 
+#if SDL_MAJOR_VERSION < 3
+                SDLPad* pController = SDL_GameControllerOpen( i );
+                int playerIndex = SDL_GameControllerGetPlayerIndex( pController );
+#else
+                SDLPad* pController = SDL_OpenGamepad( joysticks[i] );
+                int playerIndex = SDL_GetGamepadPlayerIndex( pController );
+#endif
+
+#ifdef SDL_KEYBOARD_CONTROLLER
+                if( playerIndex <= 0 && xIKeyboardController->iGetGamepad() == NULL )
+                {
+                    xIKeyboardController->iSetGamepad( pController );
+                    NotifyConnectionStatusChange( xIKeyboardController );
+                    continue;
+                }
+#endif
+
                 xIController2 = new (g_ControllerSystemAllocator) radControllerSDL
                 (
                     g_ControllerSystemAllocator,
-#if SDL_MAJOR_VERSION < 3
-                    SDL_GameControllerOpen( i ),
-#else
-                    SDL_OpenGamepad( joysticks[i] ),
-#endif
+                    pController,
+                    false,
                     virtualTime,
                     m_EventBufferTime,
                     pollingRate
@@ -1710,16 +1912,7 @@ class radControllerSystemSDL
                     xIController2
                 );
 
-                IRadWeakInterfaceWrapper* pIWir;
-
-                m_xIOl_Callbacks->Reset();
-
-                while((pIWir = reinterpret_cast<IRadWeakInterfaceWrapper*>(m_xIOl_Callbacks->GetNext())))
-                {
-
-                    IRadControllerConnectionChangeCallback* pCallback = (IRadControllerConnectionChangeCallback*)pIWir->GetWeakInterface();
-                    pCallback->OnControllerConnectionStatusChange( xIController2 );
-                }
+                NotifyConnectionStatusChange( xIController2 );
             }
         }
 #if SDL_MAJOR_VERSION > 2
@@ -1732,6 +1925,23 @@ class radControllerSystemSDL
         SetCaptureRate( 10 );
         MapVirtualTime( 0, 0 );
         SetBufferTime( 0 );
+    }
+
+    //========================================================================
+    // radControllerSystemSDL::NotifyConnectionStatusChange
+    //========================================================================
+
+    void NotifyConnectionStatusChange( IRadController* pController )
+    {
+        IRadWeakInterfaceWrapper* pIWir;
+
+        m_xIOl_Callbacks->Reset();
+
+        while((pIWir = reinterpret_cast<IRadWeakInterfaceWrapper*>(m_xIOl_Callbacks->GetNext())))
+        {
+            IRadControllerConnectionChangeCallback* pCallback = (IRadControllerConnectionChangeCallback*)pIWir->GetWeakInterface();
+            pCallback->OnControllerConnectionStatusChange( pController );
+        }
     }
 
     //========================================================================
@@ -1845,5 +2055,3 @@ void radControllerSystemService( void )
         s_pTheSDLControllerSystem2->Service( );
     }
 }
-
-
