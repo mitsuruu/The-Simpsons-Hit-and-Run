@@ -24,6 +24,32 @@
 	<array>
 		<string>${SRR2_IOS_PLATFORM}</string>
 	</array>
+	<!-- Compiled by scripts/compile-app-icon.sh, the files are the fallback for iOS 25 and older -->
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>${SRR2_APP_ICON_NAME}60x60</string>
+			</array>
+			<key>CFBundleIconName</key>
+			<string>${SRR2_APP_ICON_NAME}</string>
+		</dict>
+	</dict>
+	<key>CFBundleIcons~ipad</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>${SRR2_APP_ICON_NAME}60x60</string>
+				<string>${SRR2_APP_ICON_NAME}76x76</string>
+			</array>
+			<key>CFBundleIconName</key>
+			<string>${SRR2_APP_ICON_NAME}</string>
+		</dict>
+	</dict>
 	<key>MinimumOSVersion</key>
 	<string>15.0</string>
 	<key>LSRequiresIPhoneOS</key>

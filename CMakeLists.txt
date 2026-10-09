@@ -39,6 +39,11 @@ endif()
 if(APPLE)
 	# Prefer OpenAL Soft over Apple's deprecated OpenAL framework
 	set(CMAKE_FIND_FRAMEWORK LAST)
+
+	# The app icon is compiled by scripts/compile-app-icon.sh, its name is used
+	# by the Info.plist templates
+	set(SRR2_APP_ICON "${CMAKE_SOURCE_DIR}/ios/icon/Simpsons Hit and Run.icon")
+	get_filename_component(SRR2_APP_ICON_NAME "${SRR2_APP_ICON}" NAME_WE)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
@@ -234,5 +239,53 @@ if(APPLE)
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${SRR2_IOS_TEAM_ID}"
 		)
+	else()
+		set_target_properties(${PROJECT_NAME} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/macos/Info.plist.in"
+			MACOSX_BUNDLE_ICON_FILE "${SRR2_APP_ICON_NAME}"
+		)
 	endif()
+
+	# Compile the app icon from the Icon Composer file with Xcode's asset
+	# compiler and add the result to the bundle as resources. The files are
+	# generated in the build directory, the game depends on the target that
+	# generates them. Setting the properties of a source file of a target in
+	# another directory needs CMake 3.18.
+	if(CMAKE_VERSION VERSION_LESS 3.18)
+		message(FATAL_ERROR "CMake 3.18 or newer is needed to build for Apple platforms")
+	endif()
+	set(SRR2_ICON_DIR "${CMAKE_BINARY_DIR}/icon")
+	if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		string(TOLOWER "${SRR2_IOS_PLATFORM}" SRR2_ICON_PLATFORM)
+		set(SRR2_ICON_MIN_VERSION "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+		set(SRR2_ICON_DEVICES iphone ipad)
+		set(SRR2_ICON_FILES
+			"${SRR2_ICON_DIR}/Assets.car"
+			"${SRR2_ICON_DIR}/${SRR2_APP_ICON_NAME}60x60@2x.png"
+			"${SRR2_ICON_DIR}/${SRR2_APP_ICON_NAME}76x76@2x~ipad.png"
+		)
+	else()
+		set(SRR2_ICON_PLATFORM macosx)
+		set(SRR2_ICON_MIN_VERSION "11.0")
+		set(SRR2_ICON_DEVICES mac)
+		set(SRR2_ICON_FILES
+			"${SRR2_ICON_DIR}/Assets.car"
+			"${SRR2_ICON_DIR}/${SRR2_APP_ICON_NAME}.icns"
+		)
+	endif()
+	file(GLOB_RECURSE SRR2_APP_ICON_SOURCES "${SRR2_APP_ICON}/*")
+	add_custom_command(OUTPUT ${SRR2_ICON_FILES}
+		COMMAND sh "${CMAKE_SOURCE_DIR}/scripts/compile-app-icon.sh"
+			"${SRR2_APP_ICON}" ${SRR2_ICON_PLATFORM} ${SRR2_ICON_MIN_VERSION}
+			"${SRR2_ICON_DIR}" ${SRR2_ICON_DEVICES}
+		DEPENDS "${CMAKE_SOURCE_DIR}/scripts/compile-app-icon.sh" ${SRR2_APP_ICON_SOURCES}
+		VERBATIM
+	)
+	add_custom_target(${PROJECT_NAME}_icon DEPENDS ${SRR2_ICON_FILES})
+	add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_icon)
+	target_sources(${PROJECT_NAME} PRIVATE ${SRR2_ICON_FILES})
+	set_source_files_properties(${SRR2_ICON_FILES}
+		TARGET_DIRECTORY ${PROJECT_NAME}
+		PROPERTIES GENERATED TRUE MACOSX_PACKAGE_LOCATION Resources
+	)
 endif()
