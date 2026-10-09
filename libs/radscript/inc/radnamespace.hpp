@@ -34,6 +34,11 @@
 
 struct IRadNameSpace;
 
+// Declare the specializations defined in namespace.cpp before IRadNameSpace's
+// inline members use them, otherwise clang rejects them as coming too late.
+template<> IRadNameSpace* radLinkedClass< IRadNameSpace >::s_pLinkedClassHead;
+template<> IRadNameSpace* radLinkedClass< IRadNameSpace >::s_pLinkedClassTail;
+
 //============================================================================
 // Factories and functions
 //============================================================================

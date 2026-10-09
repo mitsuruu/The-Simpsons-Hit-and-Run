@@ -13,7 +13,9 @@
 // System Includes
 //========================================
 
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 #include <math.h>
 #include <stdlib.h>
 
