@@ -350,6 +350,15 @@ void pglDisplay::SetGamma(float r, float g, float b)
 
 void pglDisplay::SwapBuffers(void)
 {
+    // Report GL errors raised during the frame, the first few of each kind
+    static unsigned s_ErrorCounts[8];
+    for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError())
+    {
+        unsigned& count = s_ErrorCounts[error & 7];
+        if (++count <= 3)
+            SDL_Log("OpenGL - Error 0x%x (occurrence %u)", error, count);
+    }
+
     SDL_GL_SwapWindow(win);
     reset = false;
 }

@@ -115,8 +115,8 @@ void rDebugSetOutputHandler     ( radDebugOutputHandler * pOutputProc );
     #define rReleaseBreak(){ asm(trap); }
 #endif
 
-//#define rReleaseString( x )( rDebugString_Implementation( x ) )
-#define rReleaseString( x )( (void)0 )
+// Only printed when g_AllowDebugOutput is set, e.g. by the releaseprint option
+#define rReleaseString( x )( rDebugString_Implementation( x ) )
 //
 // Always compile in release asserts.
 //

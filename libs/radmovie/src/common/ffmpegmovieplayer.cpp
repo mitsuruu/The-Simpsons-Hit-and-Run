@@ -60,13 +60,13 @@ unsigned int const radMovie_NoAudioTrack = 0xFFFFFFFF;
 
 #define RAD_MOVIE_PLAYER_VIDEO_LAG 10
 
-#define AV_CHK(x) if (int error = (x) < 0) { \
+#define AV_CHK(x) { int error = (x); if (error < 0) { \
         char str[AV_ERROR_MAX_STRING_SIZE]; \
         av_strerror( error, str, AV_ERROR_MAX_STRING_SIZE ); \
-        rDebugPrintf( "%s at %s:%d\n", str, __FILE__, __LINE__ ); \
+        rReleasePrintf( "radMoviePlayer: %s at %s:%d\n", str, __FILE__, __LINE__ ); \
         SetState( IRadMoviePlayer2::NoData ); \
         return; \
-    };
+    } };
 
 //=============================================================================
 // Static Members

@@ -291,6 +291,7 @@ radDrive::CompletionStatus radSdlDrive::OpenFile
     }
     else
     {
+        SDL_Log( "radSdlDrive: Couldn't open %s: %s", fullName, SDL_GetError( ) );
         m_LastError = FileNotFound;
         return Error;
     }
