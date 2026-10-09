@@ -257,7 +257,8 @@ bool pglDisplay ::InitDisplay(const pddiDisplayInit* init)
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", last);
     }
 
-    extBGRA = CheckExtension("GL_EXT_bgra") || CheckExtension("GL_EXT_texture_format_BGRA8888");
+    extBGRA = CheckExtension("GL_EXT_bgra") || CheckExtension("GL_EXT_texture_format_BGRA8888") ||
+              CheckExtension("GL_APPLE_texture_format_BGRA8888");
 
     SDL_Log("OpenGL - Vendor: %s, Renderer: %s, Version: %s",glVendor,glRenderer,glVersion);
     SDL_Log("OpenGL - Resolution: %dx%d", winWidth, winHeight);

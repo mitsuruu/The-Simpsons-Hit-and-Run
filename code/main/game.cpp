@@ -527,8 +527,27 @@ void Game::Run()
                 else
                 {
                     mpGameFlow->SetContext( CONTEXT_EXIT );
-                }               
+                }
             }
+#ifdef RAD_IOS
+            else if( msg.type == SDL_EVENT_DID_ENTER_BACKGROUND )
+            {
+                //
+                // iOS terminates apps that use the GPU in the background, so
+                // wait here until the app returns to the foreground. Only once
+                // it's really in the background, the app also resigns active
+                // for interruptions like Control Center or during launch.
+                //
+                SDL_Event waitEvent;
+                while( SDL_WaitEvent( &waitEvent ) &&
+                       waitEvent.type != SDL_EVENT_WILL_ENTER_FOREGROUND &&
+                       waitEvent.type != SDL_EVENT_DID_ENTER_FOREGROUND &&
+                       waitEvent.type != SDL_EVENT_TERMINATING )
+                {
+                }
+                time = radTimeGetMilliseconds();
+            }
+#endif
         }
 #endif // RAD_WIN32
 

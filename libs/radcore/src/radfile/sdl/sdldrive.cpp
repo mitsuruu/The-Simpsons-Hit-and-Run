@@ -38,6 +38,14 @@
 #ifdef __APPLE__
 #include <unistd.h>
 #endif
+#ifndef WIN32
+#include <dirent.h>
+#include <strings.h>
+#include <unistd.h>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
+#endif
 
 //=============================================================================
 // Public Functions 
@@ -666,6 +674,90 @@ void radSdlDrive::SetMediaInfo( void )
     }
 }
 
+#ifndef WIN32
+//=============================================================================
+// Function:    FindEntryIgnoringCase
+//=============================================================================
+// Description: Finds a directory entry matching the name in any case. The
+//              directory listings are cached.
+//
+// Returns:     true if found, the actual name is returned in match
+//=============================================================================
+
+static bool FindEntryIgnoringCase( const std::string& dir, const std::string& name, std::string& match )
+{
+    static std::mutex s_Mutex;
+    static std::unordered_map< std::string, std::vector< std::string > > s_Listings;
+
+    std::lock_guard< std::mutex > lock( s_Mutex );
+
+    auto listing = s_Listings.find( dir );
+    if ( listing == s_Listings.end( ) )
+    {
+        std::vector< std::string > entries;
+        DIR* pDir = opendir( dir.empty( ) ? "." : dir.c_str( ) );
+        if ( pDir != NULL )
+        {
+            while ( struct dirent* pEntry = readdir( pDir ) )
+            {
+                entries.push_back( pEntry->d_name );
+            }
+            closedir( pDir );
+        }
+        listing = s_Listings.emplace( dir, std::move( entries ) ).first;
+    }
+
+    for ( const std::string& entry : listing->second )
+    {
+        if ( strcasecmp( entry.c_str( ), name.c_str( ) ) == 0 )
+        {
+            match = entry;
+            return true;
+        }
+    }
+    return false;
+}
+
+//=============================================================================
+// Function:    ResolvePathCase
+//=============================================================================
+// Description: The game was written for case-insensitive file systems and
+//              the data files aren't named consistently, so correct the case
+//              of each path component after start to match what's on disk.
+//              Components that don't exist in any case are left as they are.
+//=============================================================================
+
+static void ResolvePathCase( std::string& path, size_t start )
+{
+    if ( access( path.c_str( ), F_OK ) == 0 )
+    {
+        return;
+    }
+
+    size_t pos = start;
+    while ( pos < path.size( ) )
+    {
+        size_t end = path.find( '/', pos );
+        if ( end == std::string::npos )
+        {
+            end = path.size( );
+        }
+
+        if ( end > pos && access( path.substr( 0, end ).c_str( ), F_OK ) != 0 )
+        {
+            std::string match;
+            if ( !FindEntryIgnoringCase( path.substr( 0, pos ), path.substr( pos, end - pos ), match ) )
+            {
+                return;
+            }
+            path.replace( pos, end - pos, match );
+        }
+
+        pos = end + 1;
+    }
+}
+#endif
+
 //=============================================================================
 // Function:    radSdlDrive::BuildFileSpec
 //=============================================================================
@@ -675,6 +767,9 @@ void radSdlDrive::BuildFileSpec( const char* fileName, char* fullName, unsigned 
     std::string path(m_DrivePath);
     path += fileName;
     std::replace(path.begin(), path.end(), '\\', '/');
+#ifndef WIN32
+    ResolvePathCase( path, strlen( m_DrivePath ) );
+#endif
 
     strncpy( fullName, path.c_str(), size - 1 );
     fullName[ size - 1 ] = '\0';

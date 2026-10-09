@@ -124,6 +124,10 @@
 #include <switch.h>
 #endif
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 #include <radload/radload.hpp>
 
 #include <main/errorsWIN32.h>
@@ -337,13 +341,17 @@ bool Win32Platform::InitializeWindow()
     // resizing the window on desktop platforms
     flags |= SDL_WINDOW_RESIZABLE;
 #endif
-#ifdef __APPLE__
-    // Render at native resolution on Retina displays
+#if defined( __APPLE__ ) && !TARGET_OS_SIMULATOR
+    // Render at native resolution on Retina displays. Not in the iOS
+    // Simulator, which only has a software OpenGL ES renderer.
 #if SDL_MAJOR_VERSION < 3
     flags |= SDL_WINDOW_ALLOW_HIGHDPI;
 #else
     flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #endif
+#endif
+#ifdef RAD_IOS
+    flags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS;
 #endif
     int w, h;
     TranslateResolution( StartingResolution, w, h );
@@ -928,6 +936,11 @@ bool Win32Platform::SetResolution( Resolution res, int bpp, bool fullscreen )
         return false;
     }
 
+#ifdef RAD_IOS
+    // iOS apps are always fullscreen
+    fullscreen = true;
+#endif
+
     // Set up the new properties
     mResolution = res;
     mbpp = bpp;
@@ -1232,7 +1245,11 @@ Win32Platform::Win32Platform() :
     mbpp( StartingBPP ),
     mRenderer( "dx8" )
 {
+#ifdef RAD_IOS
+    mFullscreen = true;
+#else
     mFullscreen = false;
+#endif
 }
 
 
@@ -1668,7 +1685,7 @@ void Win32Platform::InitializeContext()
 
 void Win32Platform::GetWindowedSize( int&x, int&y )
 {
-#if !defined( __SWITCH__ ) && !defined( RAD_VITA ) && !defined( RAD_PC )
+#if !defined( __SWITCH__ ) && !defined( RAD_VITA ) && !defined( RAD_IOS ) && !defined( RAD_PC )
     x = x * 3 / 4;
     y = y * 3 / 4;
 #endif

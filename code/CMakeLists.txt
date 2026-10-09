@@ -537,6 +537,12 @@ if(SRR2_REGION STREQUAL "PAL")
 		"sound/soundrenderer/scripts/spanish.cpp"
 	)
 endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	enable_language(OBJCXX)
+	list(APPEND SRR2_SOURCES
+		"main/iosplatform.mm"
+	)
+endif()
 
 add_executable(${PROJECT_NAME} ${SRR2_SOURCES})
 target_link_libraries(${PROJECT_NAME}
@@ -595,7 +601,7 @@ if(APPLE)
 		add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_directory
 				"${CMAKE_SOURCE_DIR}/art"
-				"$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/art"
+				"$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>$<$<NOT:$<PLATFORM_ID:iOS>>:/Resources>/art"
 		)
 	else()
 		message(WARNING "No art folder found, the custom UI art won't be bundled")

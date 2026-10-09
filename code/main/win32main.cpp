@@ -30,6 +30,10 @@
 #include <SDL.h>
 #endif
 
+#ifdef RAD_IOS
+#include <main/iosplatform.h>
+#endif
+
 #ifdef RAD_VITA
 #include <unistd.h>
 #include <psp2/kernel/clib.h>
@@ -54,6 +58,12 @@ static void ProcessCommandLineArguments( int argc, char *argv[] );
 
 static void ProcessCommandLineArgumentsFromFile();
 
+#ifdef RAD_IOS
+// There's no console on iOS, so the log is also written to simpsons.log in
+// the app's Documents folder, which can be read through the Files app
+static FILE* s_LogFile = NULL;
+#endif
+
 static void LogOutputFunction( void *userdata, int category, SDL_LogPriority priority, const char *message )
 {
 #ifdef RAD_VITA
@@ -61,6 +71,13 @@ static void LogOutputFunction( void *userdata, int category, SDL_LogPriority pri
 #else
     printf( "%s\n", message );
     fflush( stdout );
+#endif
+#ifdef RAD_IOS
+    if( s_LogFile != NULL )
+    {
+        fprintf( s_LogFile, "%s\n", message );
+        fflush( s_LogFile );
+    }
 #endif
 }
 
@@ -87,7 +104,18 @@ extern "C" int main( int argc, char *argv[] )
 #ifdef RAD_VITA
 	chdir( "ux0:data/simpsons" );
 #endif
-#ifdef __APPLE__
+#ifdef RAD_IOS
+    // The game data is copied into the app's Documents folder through the
+    // Files app or Finder
+    const char* documentsPath = SDL_GetUserFolder( SDL_FOLDER_DOCUMENTS );
+    if( documentsPath != NULL )
+    {
+        chdir( documentsPath );
+    }
+    s_LogFile = fopen( "simpsons.log", "w" );
+    SDL_SetHint( SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight" );
+    iOSInitializeAudioSession();
+#elif defined __APPLE__
     // A bundled app is launched with "/" as the working directory, so look
     // for the game data in ~/Library/Application Support/Simpsons instead.
     const char* basePath = SDL_GetBasePath();

@@ -41,6 +41,21 @@ if(APPLE)
 	set(CMAKE_FIND_FRAMEWORK LAST)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	add_definitions(-DRAD_IOS)
+	# iOS only supports OpenGL ES
+	set(SRR2_P3D_PDDI "GLES2" CACHE STRING "Pure3D PDDI implementation" FORCE)
+	set(SRR2_BUILD_TESTS OFF CACHE BOOL "Build sample programs for internal libraries" FORCE)
+	set(SRR2_IOS_TEAM_ID "" CACHE STRING "Apple development team ID used to sign the iOS app")
+	set(SRR2_IOS_BUNDLE_ID "com.radical.simpsons.${SRR2_REGION}" CACHE STRING "iOS app bundle identifier")
+	# Substituted into ios/Info.plist.in
+	if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+		set(SRR2_IOS_PLATFORM "iPhoneSimulator")
+	else()
+		set(SRR2_IOS_PLATFORM "iPhoneOS")
+	endif()
+endif()
+
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -208,4 +223,16 @@ if(APPLE)
 		MACOSX_BUNDLE_BUNDLE_VERSION ${SRR2_VERSION}
 		MACOSX_BUNDLE_SHORT_VERSION_STRING ${SRR2_VERSION}
 	)
+	if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		set_target_properties(${PROJECT_NAME} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/ios/Info.plist.in"
+			MACOSX_BUNDLE_GUI_IDENTIFIER "${SRR2_IOS_BUNDLE_ID}"
+			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${SRR2_IOS_BUNDLE_ID}"
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "15.0"
+			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${SRR2_IOS_TEAM_ID}"
+		)
+	endif()
 endif()

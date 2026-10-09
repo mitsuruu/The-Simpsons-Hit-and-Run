@@ -34,6 +34,22 @@ static inline GLenum PickPixelFormat(pddiPixelFormat format)
     return GL_INVALID_ENUM;
 };
 
+// OpenGL ES requires the internal format to match the format of the data
+static inline GLenum PickInternalFormat(pddiPixelFormat format, GLenum dataFormat)
+{
+    GLenum internalFormat = PickPixelFormat(format);
+    if (internalFormat == GL_BGRA_EXT)
+    {
+#ifdef RAD_IOS
+        // APPLE_texture_format_BGRA8888 takes BGRA data into RGBA textures
+        internalFormat = GL_RGBA;
+#else
+        internalFormat = dataFormat;
+#endif
+    }
+    return internalFormat;
+}
+
 static inline pddiPixelFormat PickPixelFormat(pddiTextureType type, int bitDepth, int alphaDepth)
 {
     switch (type)
@@ -130,8 +146,9 @@ void pglTexture::SetGLState(void)
 #endif
         else
         {
-            glTexImage2D(GL_TEXTURE_2D, 0, PickPixelFormat(lock.format), xSize,
-                ySize, 0, lock.native ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE,
+            GLenum dataFormat = lock.native ? GL_BGRA_EXT : GL_RGBA;
+            glTexImage2D(GL_TEXTURE_2D, 0, PickInternalFormat(lock.format, dataFormat), xSize,
+                ySize, 0, dataFormat, GL_UNSIGNED_BYTE,
                 (GLvoid *)bits[0]);
         }
         /*
