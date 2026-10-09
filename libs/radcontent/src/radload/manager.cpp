@@ -7,6 +7,7 @@
 #include <radload/utility/hashtable.hpp>
 #include <radload/utility/queue.hpp>
 #include <radfile.hpp>
+#include <radtime.hpp>
 
 #ifdef RADLOAD_USE_WATCHER
 #include <raddebugwatch.hpp>
@@ -65,7 +66,8 @@ m_pFileLoaders( NULL ),
 m_pDataLoaders( NULL ),
 m_pLoadQueue( NULL ),
 m_pThread( NULL ),
-m_pMutex( NULL )
+m_pMutex( NULL ),
+m_MutexAcquisitions( 0 )
 {
     // Make our hash tables so that they will never resize or repack
     m_pFileLoaders = new RefHashTable<radLoadFileLoader>( init.fileLoaderListSize, 200, init.fileLoaderListSize );
@@ -385,9 +387,24 @@ void radLoadManager::SetSyncLoading( bool sync )
 
 void radLoadManager::SwitchTasks()
 {
+    //
+    // Hand the mutex to the other thread. Mutexes aren't fair, so without
+    // waiting for the other thread to actually take it, this thread can grab
+    // it again before the other one wakes up. On iOS that starved the load
+    // thread for seconds at a time. Don't wait long in case nobody's waiting.
+    //
+    unsigned int acquisitions = m_MutexAcquisitions;
     m_pMutex->Unlock();
-    radThreadSleep(0);
+
+    unsigned int start = radTimeGetMicroseconds();
+    while( m_MutexAcquisitions == acquisitions &&
+           radTimeGetMicroseconds() - start < 2000 )
+    {
+        radThreadSleep(0);
+    }
+
     m_pMutex->Lock();
+    m_MutexAcquisitions++;
 }
 
 void radLoadManager::Terminate()

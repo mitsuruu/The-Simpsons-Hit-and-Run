@@ -9,6 +9,7 @@
 #include <radload/radload.hpp>
 #include <radload/loader.hpp>
 #include <radthread.hpp>
+#include <atomic>
 
 template <class T> class RefHashTable;
 template <class T> class RefQueue;
@@ -95,6 +96,8 @@ protected:
     IRadThread* m_pThread;
     IRadThreadSemaphore* m_pSemaphore;
     IRadThreadMutex* m_pMutex;
+    // Incremented whenever a thread takes the mutex in SwitchTasks
+    std::atomic<unsigned int> m_MutexAcquisitions;
 };
 
 #endif
