@@ -28,7 +28,7 @@ tEntity* tCameraLoader::LoadObject(tChunkFile* f, tEntityStore* store)
     long version = f->GetLong();
     float fov = f->GetFloat();
     float a = f->GetFloat();
-    float aspectratio = p3d::display->IsWidescreen() ? (16.0f / 9.0f) : a;
+    float aspectratio = p3d::display->IsWidescreen() ? p3d::display->GetAspectRatio() : a;
     float nearclip = f->GetFloat();
     float farclip = f->GetFloat();
 

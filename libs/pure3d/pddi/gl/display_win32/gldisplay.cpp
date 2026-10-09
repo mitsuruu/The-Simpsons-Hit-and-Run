@@ -80,7 +80,8 @@ long pglDisplay ::ProcessWindowMessage(SDL_Window* win, const SDL_WindowEvent* e
     {
         case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             SDL_GetWindowSizeInPixels( win, &winWidth, &winHeight );
-                break;
+            SDL_Log("OpenGL - Resolution: %dx%d", winWidth, winHeight);
+            break;
 
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             /* release and free the device context and rendering context */
@@ -174,7 +175,12 @@ bool pglDisplay ::InitDisplay(const pddiDisplayInit* init)
     if (pDisplayMode)
         SDL_SetWindowDisplayMode(win, pDisplayMode);
 #else
-    if(SDL_GetClosestFullscreenDisplayMode((SDL_DisplayID)displayInfo->id, x, y, 0.0f, false, &closestMode))
+    // Use borderless fullscreen at the desktop resolution rather than
+    // switching the display mode
+    const SDL_DisplayMode* desktopMode = SDL_GetDesktopDisplayMode((SDL_DisplayID)displayInfo->id);
+    if(desktopMode && desktopMode->w == x && desktopMode->h == y)
+        SDL_SetWindowFullscreenMode(win, NULL);
+    else if(SDL_GetClosestFullscreenDisplayMode((SDL_DisplayID)displayInfo->id, x, y, 0.0f, false, &closestMode))
         SDL_SetWindowFullscreenMode(win, &closestMode);
 #endif
 
@@ -261,6 +267,7 @@ bool pglDisplay ::InitDisplay(const pddiDisplayInit* init)
 #endif
 
     SDL_Log("OpenGL - Vendor: %s, Renderer: %s, Version: %s",glVendor,glRenderer,glVersion);
+    SDL_Log("OpenGL - Resolution: %dx%d", winWidth, winHeight);
 
 #if defined RAD_DEBUG && !defined RAD_VITA
     glEnable(GL_DEBUG_OUTPUT_KHR);

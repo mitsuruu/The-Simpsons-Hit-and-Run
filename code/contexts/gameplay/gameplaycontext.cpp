@@ -228,7 +228,7 @@ void GameplayContext::OnStart( ContextEnum previousContext )
         rAssert( sun );
         rm->SetLevelLayerLights( sun );
 
-        float aspect = p3d::display->IsWidescreen() ? (16.0f / 9.0f) : (4.0f / 3.0f);
+        float aspect = p3d::display->GetAspectRatio();
 
         if( iNumPlayers == 2 )
         {

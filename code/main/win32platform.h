@@ -131,6 +131,7 @@ private:
 
     // Resolution related methods
     static void TranslateResolution( Resolution res, int&x, int&y );
+    static void GetWindowedSize( int&x, int&y );
     bool IsResolutionSupported( Resolution res, int bpp ) const;
 
     // Windows methods.

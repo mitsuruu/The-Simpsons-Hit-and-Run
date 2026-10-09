@@ -332,8 +332,9 @@ bool Win32Platform::InitializeWindow()
 #ifndef RAD_VITA
     flags |= SDL_WINDOW_OPENGL;
 #endif
-#ifdef __SWITCH__
-    // Support switching between docked and handheld mode
+#ifndef RAD_VITA
+    // Support switching between docked and handheld mode on Switch, and
+    // resizing the window on desktop platforms
     flags |= SDL_WINDOW_RESIZABLE;
 #endif
 #ifdef __APPLE__
@@ -346,6 +347,7 @@ bool Win32Platform::InitializeWindow()
 #endif
     int w, h;
     TranslateResolution( StartingResolution, w, h );
+    GetWindowedSize( w, h );
 #if SDL_MAJOR_VERSION < 3
     mWnd = SDL_CreateWindow( ApplicationName, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, flags );
 #else
@@ -1652,6 +1654,27 @@ void Win32Platform::InitializeContext()
 }
 
 //==============================================================================
+// Win32Platform::GetWindowedSize
+//==============================================================================
+// Description: shrinks a native display resolution to a window that leaves
+//              room for the desktop around it
+//
+// Parameters:	x - width
+//              y - height
+//
+// Return:      N/A.
+//
+//==============================================================================
+
+void Win32Platform::GetWindowedSize( int&x, int&y )
+{
+#if !defined( __SWITCH__ ) && !defined( RAD_VITA ) && !defined( RAD_PC )
+    x = x * 3 / 4;
+    y = y * 3 / 4;
+#endif
+}
+
+//==============================================================================
 // Win32Platform::TranslateResolution
 //==============================================================================
 // Description: translates resolution enums to x and y
@@ -1681,6 +1704,27 @@ void Win32Platform::TranslateResolution( Resolution res, int&x, int&y )
 #elif defined(RAD_VITA)
     x = 960;
     y = 544;
+#elif !defined(RAD_PC)
+    //
+    // Use the native resolution of the display
+    //
+    x = 1280;
+    y = 720;
+#if SDL_MAJOR_VERSION < 3
+    SDL_DisplayMode mode;
+    if( SDL_GetDesktopDisplayMode( 0, &mode ) == 0 )
+    {
+        x = mode.w;
+        y = mode.h;
+    }
+#else
+    const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode( SDL_GetPrimaryDisplay() );
+    if( mode != NULL )
+    {
+        x = mode->w;
+        y = mode->h;
+    }
+#endif
 #else
     switch( res )
     {
@@ -1787,6 +1831,7 @@ void Win32Platform::ResizeWindow()
 
     int w,h;
     TranslateResolution( mResolution, w, h );
+    GetWindowedSize( w, h );
 
     SDL_SetWindowSize( mWnd, w, h );
     SDL_SetWindowPosition( mWnd, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED );

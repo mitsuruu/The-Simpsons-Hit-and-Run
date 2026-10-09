@@ -326,6 +326,7 @@ public:
    PDDI_INTERFACE unsigned Screenshot(pddiColour* buffer, int nBytes) PDDI_PURE;
 
    PDDI_INTERFACE bool IsWidescreen(void) {return GetWidth() * 3 > GetHeight() * 4; };
+   PDDI_INTERFACE float GetAspectRatio(void) {return GetHeight() > 0 ? float(GetWidth()) / float(GetHeight()) : 4.0f / 3.0f; };
 
    PDDI_INTERFACE void SetForceVSync(bool IsForceVSync, bool only60 = false) {m_ForceVSync = IsForceVSync; m_only60 = only60;}
    PDDI_INTERFACE bool GetForceVSync(void) {return m_ForceVSync;}

@@ -172,7 +172,7 @@ void SuperSprintContext::OnStart( ContextEnum previousContext )
     rm->SetLevelLayerLights( NULL );
 
 
-    float aspect = p3d::display->IsWidescreen() ? (16.0f / 9.0f) : (4.0f / 3.0f);
+    float aspect = p3d::display->GetAspectRatio();
 
     unsigned int view = 0;
 
