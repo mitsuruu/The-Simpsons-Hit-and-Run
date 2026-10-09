@@ -12,8 +12,8 @@
 #   nix shell nixpkgs#cmake nixpkgs#ninja nixpkgs#pkg-config -c ios/build-ipa.sh
 #
 # Steps that were already done are skipped, so running it again is quick:
-#   1. Extracts the port's UI art (art/) from the official release if it's
-#      missing, it isn't in the git repository
+#   1. Downloads the port's UI art (art/) from the official release if it's
+#      missing, it isn't in the git repository (scripts/fetch-art.sh)
 #   2. Builds the libraries the game links against (ios/build-deps.sh)
 #   3. Builds the game
 #   4. Packages it as an .ipa
@@ -21,7 +21,6 @@
 set -e
 
 REGION=${SRR2_REGION:-NTSC}
-ART_RELEASE_URL=https://github.com/ZenoArrows/The-Simpsons-Hit-and-Run/releases/download/v0.6.1/Simpsons$REGION.vpk
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DEPS=$ROOT/build/ios-deps/iphoneos
@@ -37,13 +36,7 @@ for tool in xcodebuild cmake ninja pkg-config; do
     fi
 done
 
-if [ ! -f art/frontend/scrooby/ingame.p3d ]; then
-    echo "Extracting the UI art from the $REGION release"
-    TMP=$(mktemp -d)
-    trap 'rm -rf "$TMP"' EXIT
-    curl -fsSL "$ART_RELEASE_URL" -o "$TMP/release.vpk"
-    unzip -q "$TMP/release.vpk" 'art/*' -d "$ROOT"
-fi
+scripts/fetch-art.sh "$REGION"
 
 if [ ! -f "$DEPS/lib/libSDL3.a" ]; then
     ios/build-deps.sh iphoneos

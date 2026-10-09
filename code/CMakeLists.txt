@@ -611,7 +611,18 @@ if(APPLE)
 	target_sources(${PROJECT_NAME} PRIVATE "${SRR2_APP_ICON}")
 	set_source_files_properties("${SRR2_APP_ICON}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
-	# Bundle the port's custom UI art, it's loaded through the APP: drive
+	# Bundle the port's custom UI art, it's loaded through the APP: drive. It's
+	# not in the git repository, download it from the release if it's missing.
+	option(SRR2_FETCH_ART "Download the UI art from the official release if art/ is missing" ON)
+	if(SRR2_FETCH_ART AND NOT EXISTS "${CMAKE_SOURCE_DIR}/art/frontend/scrooby/ingame.p3d")
+		execute_process(
+			COMMAND sh "${CMAKE_SOURCE_DIR}/scripts/fetch-art.sh" ${SRR2_REGION}
+			RESULT_VARIABLE SRR2_FETCH_ART_RESULT
+		)
+		if(NOT SRR2_FETCH_ART_RESULT EQUAL 0)
+			message(WARNING "Couldn't download the UI art")
+		endif()
+	endif()
 	if(EXISTS "${CMAKE_SOURCE_DIR}/art")
 		add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -619,7 +630,7 @@ if(APPLE)
 				"$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>$<$<NOT:$<PLATFORM_ID:iOS>>:/Resources>/art"
 		)
 	else()
-		message(WARNING "No art folder found, the custom UI art won't be bundled")
+		message(WARNING "No art folder found, the custom UI art won't be bundled and the game crashes in the pause menu. Run scripts/fetch-art.sh to download it.")
 	endif()
 endif()
 
