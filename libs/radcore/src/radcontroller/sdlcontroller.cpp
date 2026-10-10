@@ -174,6 +174,7 @@ static const SDLKeyBinding g_SDLKeyBindings[] =
     { "DPadRight",    { SDL_SCANCODE_RIGHT,  SDL_SCANCODE_UNKNOWN } },
     { "Start",        { SDL_SCANCODE_ESCAPE, SDL_SCANCODE_UNKNOWN } },
     { "Back",         { SDL_SCANCODE_R,      SDL_SCANCODE_UNKNOWN } },
+    { "LeftThumb",    { SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_UNKNOWN } },
     { "RightThumb",   { SDL_SCANCODE_V,      SDL_SCANCODE_UNKNOWN } },
     { "A",            { SDL_SCANCODE_SPACE,  SDL_SCANCODE_RETURN } },
     { "B",            { SDL_SCANCODE_LSHIFT, SDL_SCANCODE_BACKSPACE } },
@@ -188,6 +189,10 @@ static const SDLKeyBinding g_SDLKeyBindings[] =
     { "RightStickX",  { SDL_SCANCODE_L,      SDL_SCANCODE_J } },
     { "RightStickY",  { SDL_SCANCODE_K,      SDL_SCANCODE_I } }
 };
+
+// Input points pressed from platform code, see radControllerSetVirtualButton
+static bool g_SDLVirtualButtons[ sizeof( g_SDLKeyBindings ) / sizeof( SDLKeyBinding ) ];
+static float g_SDLVirtualAxes[ sizeof( g_SDLKeyBindings ) / sizeof( SDLKeyBinding ) ];
 
 static const SDLKeyBinding * FindKeyBinding( const char * pName )
 {
@@ -405,8 +410,13 @@ class radControllerInputPointSDL
                 {
                     newValue = 0.5f + 0.5f * direction;
                 }
+                else if ( g_SDLVirtualAxes[ m_pKeyBinding - g_SDLKeyBindings ] != 0.0f )
+                {
+                    newValue = 0.5f + 0.5f * g_SDLVirtualAxes[ m_pKeyBinding - g_SDLKeyBindings ];
+                }
             }
-            else if ( IsKeyDown( m_pKeyBinding->m_Keys[ 0 ] ) || IsKeyDown( m_pKeyBinding->m_Keys[ 1 ] ) )
+            else if ( IsKeyDown( m_pKeyBinding->m_Keys[ 0 ] ) || IsKeyDown( m_pKeyBinding->m_Keys[ 1 ] ) ||
+                      g_SDLVirtualButtons[ m_pKeyBinding - g_SDLKeyBindings ] )
             {
                 newValue = 1.0f;
             }
@@ -1483,7 +1493,13 @@ class radControllerSystemSDL
                     return false;
                 }
 
-                xISDLController2->iSetGamepad( NULL );
+                //
+                // A gamepad that was connected while this one was in use takes
+                // its place, e.g. a physical gamepad replacing the touch
+                // controls on iOS
+                //
+
+                xISDLController2->iSetGamepad( sys->FindUnusedGamepad( pController ) );
             }
             else if ( xIController2 != NULL )
             {
@@ -1928,6 +1944,55 @@ class radControllerSystemSDL
     }
 
     //========================================================================
+    // radControllerSystemSDL::FindUnusedGamepad
+    //========================================================================
+    // Finds an opened gamepad that no controller is using, other than the
+    // one that's being removed.
+
+    SDLPad* FindUnusedGamepad( SDLPad* pRemoved )
+    {
+        SDLPad* pUnused = NULL;
+
+#if SDL_MAJOR_VERSION < 3
+        int numJoysticks = SDL_NumJoysticks();
+#else
+        int numJoysticks;
+        SDL_JoystickID* joysticks = SDL_GetGamepads( &numJoysticks );
+#endif
+        for( int i = 0; i < numJoysticks && pUnused == NULL; i++ )
+        {
+#if SDL_MAJOR_VERSION < 3
+            SDLPad* pController = SDL_IsGameController( i ) ?
+                SDL_GameControllerFromInstanceID( SDL_JoystickGetDeviceInstanceID( i ) ) : NULL;
+#else
+            SDLPad* pController = SDL_GetGamepadFromID( joysticks[i] );
+#endif
+            if( pController == NULL || pController == pRemoved )
+            {
+                continue;
+            }
+
+            bool used = false;
+            IRadControllerSDL* pIController;
+            m_xIOl_Controllers->Reset();
+            while( !used && ( pIController = reinterpret_cast< IRadControllerSDL* >( m_xIOl_Controllers->GetNext() ) ) )
+            {
+                used = pIController->iGetGamepad() == pController;
+            }
+
+            if( !used )
+            {
+                pUnused = pController;
+            }
+        }
+#if SDL_MAJOR_VERSION > 2
+        SDL_free( joysticks );
+#endif
+
+        return pUnused;
+    }
+
+    //========================================================================
     // radControllerSystemSDL::NotifyConnectionStatusChange
     //========================================================================
 
@@ -2053,5 +2118,33 @@ void radControllerSystemService( void )
     if( s_pTheSDLControllerSystem2 != NULL )
     {
         s_pTheSDLControllerSystem2->Service( );
+    }
+}
+
+//=============================================================================
+// Function:    radControllerSetVirtualButton
+//=============================================================================
+
+void radControllerSetVirtualButton( const char* pName, bool pressed )
+{
+    const SDLKeyBinding* pBinding = FindKeyBinding( pName );
+    rAssert( pBinding != NULL );
+    if ( pBinding != NULL )
+    {
+        g_SDLVirtualButtons[ pBinding - g_SDLKeyBindings ] = pressed;
+    }
+}
+
+//=============================================================================
+// Function:    radControllerSetVirtualAxis
+//=============================================================================
+
+void radControllerSetVirtualAxis( const char* pName, float value )
+{
+    const SDLKeyBinding* pBinding = FindKeyBinding( pName );
+    rAssert( pBinding != NULL );
+    if ( pBinding != NULL )
+    {
+        g_SDLVirtualAxes[ pBinding - g_SDLKeyBindings ] = value;
     }
 }

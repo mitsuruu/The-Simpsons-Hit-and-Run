@@ -128,6 +128,10 @@
 #include <TargetConditionals.h>
 #endif
 
+#ifdef RAD_IOS
+#include <main/iosplatform.h>
+#endif
+
 #include <radload/radload.hpp>
 
 #include <main/errorsWIN32.h>
@@ -1662,6 +1666,11 @@ void Win32Platform::InitializeContext()
         //
         mpPlatform->SetActiveContext( mpContext );
         p3d::pddi->EnableZBuffer( true );
+
+#ifdef RAD_IOS
+        // After the GL context, creating it replaces the window's view
+        iOSInitializeTouchControls( mWnd );
+#endif
     }
     else
     {

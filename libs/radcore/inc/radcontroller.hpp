@@ -70,6 +70,20 @@ IRadControllerSystem* radControllerSystemGet( void );
 //
 void radControllerSystemService( void );
 
+//
+// Presses or releases an input point of the first player's controller from
+// platform code, e.g. on-screen touch buttons. pName is the name of an input
+// point such as "Start". Only supported by the SDL controller system.
+//
+void radControllerSetVirtualButton( const char* pName, bool pressed );
+
+//
+// Sets an axis input point such as "RightStickX" from platform code. The value
+// is from -1 to 1, in the direction of the axis' first key binding, and 0 is
+// centred. Only supported by the SDL controller system.
+//
+void radControllerSetVirtualAxis( const char* pName, float value );
+
 //=============================================================================
 // Interface: IRadControllerSystem
 //=============================================================================
