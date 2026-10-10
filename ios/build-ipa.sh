@@ -9,7 +9,7 @@
 # with your Apple ID.
 #
 # Requires Xcode, cmake, ninja and pkg-config. With nix, run it as
-#   nix shell nixpkgs#cmake nixpkgs#ninja nixpkgs#pkg-config -c ios/build-ipa.sh
+#   nix develop -c ios/build-ipa.sh
 #
 # Steps that were already done are skipped, so running it again is quick:
 #   1. Downloads the port's UI art (art/) from the official release if it's

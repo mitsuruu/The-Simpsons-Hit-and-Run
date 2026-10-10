@@ -43,6 +43,9 @@ if(APPLE)
 	# The app icon is compiled by scripts/compile-app-icon.sh, its name is used
 	# by the Info.plist templates
 	set(SRR2_APP_ICON "${CMAKE_SOURCE_DIR}/ios/icon/Simpsons Hit and Run.icon")
+	# The name in the menu bar and the Dock on macOS, the Dock uses the name of
+	# the app file otherwise. Substituted into Info.plist unescaped.
+	set(SRR2_MACOS_TITLE "The Simpsons: Hit &amp; Run")
 	get_filename_component(SRR2_APP_ICON_NAME "${SRR2_APP_ICON}" NAME_WE)
 endif()
 
@@ -241,8 +244,15 @@ if(APPLE)
 		)
 	else()
 		set_target_properties(${PROJECT_NAME} PROPERTIES
+			OUTPUT_NAME "Simpsons Hit and Run"
+			MACOSX_BUNDLE_BUNDLE_NAME "${SRR2_MACOS_TITLE}"
 			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/macos/Info.plist.in"
 			MACOSX_BUNDLE_ICON_FILE "${SRR2_APP_ICON_NAME}"
+		)
+		target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/macos/en.lproj/InfoPlist.strings")
+		set_source_files_properties("${CMAKE_SOURCE_DIR}/macos/en.lproj/InfoPlist.strings"
+			TARGET_DIRECTORY ${PROJECT_NAME}
+			PROPERTIES MACOSX_PACKAGE_LOCATION Resources/en.lproj
 		)
 	endif()
 

@@ -1,0 +1,5 @@
+/* The names in the menu bar and the Dock. The Dock only uses CFBundleDisplayName
+   from Info.plist if the app is localized, it uses the name of the app file
+   otherwise. Keep in sync with SRR2_MACOS_TITLE in CMakeLists.txt. */
+"CFBundleName" = "The Simpsons: Hit & Run";
+"CFBundleDisplayName" = "The Simpsons: Hit & Run";
