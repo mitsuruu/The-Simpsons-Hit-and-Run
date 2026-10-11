@@ -1,0 +1,129 @@
+name: iOS
+
+# Builds the unsigned iOS .ipa on every push, publishes it as a GitHub release
+# and updates a SideStore source that points at the latest release.
+#
+# Add this source in SideStore (Sources > +):
+#   https://github.com/<owner>/<repo>/releases/latest/download/sidestore.json
+
+on:
+  push:
+    branches: [master, macos-ios-port]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IPA_NAME: SimpsonsHitAndRun.ipa
+
+jobs:
+  build:
+    # Xcode 26 is needed to compile the Icon Composer app icon
+    runs-on: macos-26
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      size: ${{ steps.package.outputs.size }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install ninja pkg-config
+
+      - name: Cache the dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/ios-deps
+          key: ios-deps-${{ runner.os }}-${{ hashFiles('ios/build-deps.sh') }}
+
+      - name: Build the unsigned .ipa
+        run: ios/build-ipa.sh
+
+      # The build always says SRR2_VERSION, SideStore only offers an update when
+      # the version in the source is different from the installed one
+      - name: Pick the version
+        id: version
+        run: |
+          base=$(sed -n 's/^set(SRR2_VERSION "\(.*\)")/\1/p' CMakeLists.txt | sed 's/^0*\([0-9]\)/\1/')
+          echo "version=$base.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "tag=ios-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp the version and package
+        id: package
+        run: |
+          rm -rf stamp && mkdir stamp
+          unzip -q build/SimpsonsNTSC-unsigned.ipa -d stamp
+          plist=$(echo stamp/Payload/*.app/Info.plist)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" "$plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$plist"
+          (cd stamp && zip -qry "../$IPA_NAME" Payload)
+          echo "size=$(stat -f%z "$IPA_NAME")" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" "$IPA_NAME" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.version.outputs.version }}" \
+            --notes "${COMMIT_MESSAGE:-Build from ${{ github.sha }}}"
+
+  sidestore-source:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate the SideStore source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+          SIZE: ${{ needs.build.outputs.size }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          SHA: ${{ github.sha }}
+        run: |
+          jq -n \
+            --arg repo "$REPO" \
+            --arg tag "$TAG" \
+            --arg version "$VERSION" \
+            --argjson size "$SIZE" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg notes "${COMMIT_MESSAGE:-Build from $SHA}" \
+            --arg ipa "$IPA_NAME" \
+            --arg sha "$SHA" \
+            '{
+              name: "The Simpsons: Hit & Run",
+              identifier: "com.radical.simpsons.source",
+              sourceURL: "https://github.com/\($repo)/releases/latest/download/sidestore.json",
+              apps: [{
+                name: "The Simpsons: Hit & Run",
+                bundleIdentifier: "com.radical.simpsons.NTSC",
+                developerName: "Radical Entertainment",
+                subtitle: "iOS port of The Simpsons: Hit & Run",
+                localizedDescription: "The Simpsons: Hit & Run for iOS. Game data is not included, copy it into the app through the Files app or Finder.",
+                iconURL: "https://raw.githubusercontent.com/\($repo)/\($sha)/ios/icon/Simpsons%20Hit%20and%20Run.icon/Assets/logo.png",
+                tintColor: "FFD90F",
+                versions: [{
+                  version: $version,
+                  buildVersion: ($version | split(".") | last),
+                  date: $date,
+                  localizedDescription: $notes,
+                  downloadURL: "https://github.com/\($repo)/releases/download/\($tag)/\($ipa)",
+                  size: $size,
+                  minOSVersion: "15.0"
+                }]
+              }],
+              news: []
+            }' > sidestore.json
+          cat sidestore.json
+
+      - name: Upload it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.build.outputs.tag }}" sidestore.json --clobber --repo "${{ github.repository }}"
