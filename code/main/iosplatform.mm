@@ -40,6 +40,14 @@ static SRR2StickView* s_LeftStick = nil;
 // Buttons have to stay pressed long enough for the game to see them
 static const NSTimeInterval MIN_PRESS_TIME = 0.1;
 
+// The sizes and distances below are for an iPad mini. Smaller screens shrink
+// the buttons by this factor, see ScaleTouchControls.
+static CGFloat s_Scale = 1.0;
+static CGFloat Scaled( CGFloat value )
+{
+    return value * s_Scale;
+}
+
 @interface SRR2ButtonTarget : NSObject
 @property (nonatomic) NSTimeInterval pressTime;
 @property (nonatomic) const char* name;
@@ -255,8 +263,8 @@ static SRR2StickZone* s_StickZone = nil;
 
 // A cross that presses the d-pad buttons. Sliding the finger changes direction,
 // and near a diagonal it presses two.
-static const CGFloat DPAD_SIZE = 200.0;
-static const CGFloat DPAD_ARM_WIDTH = 72.0;
+static CGFloat DPAD_SIZE = 200.0;
+static CGFloat DPAD_ARM_WIDTH = 72.0;
 
 @interface SRR2DPadView : UIView
 @property (nonatomic, assign) BOOL up;
@@ -302,9 +310,9 @@ static const CGFloat DPAD_ARM_WIDTH = 72.0;
     for( int i = 0; i < 4; i++ )
     {
         UIBezierPath* arrow = [UIBezierPath bezierPath];
-        [arrow moveToPoint:CGPointMake( c, edge - 9.0 )];
-        [arrow addLineToPoint:CGPointMake( c + 11.0, edge + 7.0 )];
-        [arrow addLineToPoint:CGPointMake( c - 11.0, edge + 7.0 )];
+        [arrow moveToPoint:CGPointMake( c, edge - Scaled( 9.0 ) )];
+        [arrow addLineToPoint:CGPointMake( c + Scaled( 11.0 ), edge + Scaled( 7.0 ) )];
+        [arrow addLineToPoint:CGPointMake( c - Scaled( 11.0 ), edge + Scaled( 7.0 ) )];
         [arrow closePath];
         CGAffineTransform turn = CGAffineTransformTranslate( CGAffineTransformMakeRotation( i * M_PI_2 ), 0.0, 0.0 );
         // Rotate around the centre of the view
@@ -335,7 +343,7 @@ static const CGFloat DPAD_ARM_WIDTH = 72.0;
     CGFloat x = point.x - c;
     CGFloat y = point.y - c;
     CGFloat length = hypot( x, y );
-    BOOL centred = length < 14.0;
+    BOOL centred = length < Scaled( 14.0 );
     // Within 22.5 degrees of an axis only presses that direction
     const CGFloat threshold = 0.38;
     BOOL up = !centred && -y > threshold * length;
@@ -395,7 +403,7 @@ static void UpdateTouchControls()
     }
 }
 
-static UIButton* MakeButton( UIView* view, NSString* title, const char* name, bool isAxis, CGFloat width, CGFloat height = 36.0 )
+static UIButton* MakeButton( UIView* view, NSString* title, const char* name, bool isAxis, CGFloat width, CGFloat height )
 {
     SRR2ButtonTarget* target = [[SRR2ButtonTarget alloc] init];
     target.name = name;
@@ -403,11 +411,11 @@ static UIButton* MakeButton( UIView* view, NSString* title, const char* name, bo
 
     UIButton* button = [SRR2Button buttonWithType:UIButtonTypeCustom];
     [button setTitle:title forState:UIControlStateNormal];
-    button.titleLabel.font = [UIFont systemFontOfSize:15.0 weight:UIFontWeightSemibold];
+    button.titleLabel.font = [UIFont systemFontOfSize:MAX( 11.0, Scaled( 15.0 ) ) weight:UIFontWeightSemibold];
     [button setTitleColor:[UIColor colorWithWhite:1.0 alpha:0.9] forState:UIControlStateNormal];
     [button setTitleColor:[UIColor colorWithWhite:1.0 alpha:0.5] forState:UIControlStateHighlighted];
     button.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.35];
-    button.layer.cornerRadius = 18.0;
+    button.layer.cornerRadius = height * 0.5;
     button.layer.borderWidth = 1.5;
     button.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.6].CGColor;
     button.accessibilityLabel = title.capitalizedString;
@@ -425,7 +433,7 @@ static UIButton* MakeButton( UIView* view, NSString* title, const char* name, bo
     return button;
 }
 
-static const CGFloat ROUND_BUTTON_SIZE = 72.0;
+static CGFloat ROUND_BUTTON_SIZE = 72.0;
 
 //
 // The in-game prompts show PlayStation buttons, draw the face buttons as
@@ -434,10 +442,10 @@ static const CGFloat ROUND_BUTTON_SIZE = 72.0;
 //
 static UIBezierPath* MakeGlyph( void ( ^draw )( CGMutablePathRef path, CGFloat size ) )
 {
-    const CGFloat size = 22.0;
+    const CGFloat size = Scaled( 22.0 );
     CGMutablePathRef line = CGPathCreateMutable();
     draw( line, size );
-    CGPathRef outline = CGPathCreateCopyByStrokingPath( line, NULL, 2.0, kCGLineCapRound, kCGLineJoinRound, 0.0 );
+    CGPathRef outline = CGPathCreateCopyByStrokingPath( line, NULL, Scaled( 2.0 ), kCGLineCapRound, kCGLineJoinRound, 0.0 );
     UIBezierPath* glyph = [UIBezierPath bezierPathWithCGPath:outline];
 
     // The system scales the path to fill the button, so changing the size of
@@ -494,8 +502,8 @@ static UIButton* MakeThumbButton( UIView* view, NSString* letter, const char* na
     UIGraphicsImageRenderer* renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake( size, size )];
     UIImage* glyph = [renderer imageWithActions:^( UIGraphicsImageRendererContext* context ) {
         [[UIColor whiteColor] setStroke];
-        UIBezierPath* ring = [UIBezierPath bezierPathWithOvalInRect:CGRectMake( 3.0, 3.0, size - 6.0, size - 6.0 )];
-        ring.lineWidth = 5.0;
+        UIBezierPath* ring = [UIBezierPath bezierPathWithOvalInRect:CGRectMake( Scaled( 3.0 ), Scaled( 3.0 ), size - Scaled( 6.0 ), size - Scaled( 6.0 ) )];
+        ring.lineWidth = Scaled( 5.0 );
         [ring stroke];
         NSDictionary* attributes = @{ NSFontAttributeName : [UIFont systemFontOfSize:size * 0.54 weight:UIFontWeightBold],
                                       NSForegroundColorAttributeName : [UIColor whiteColor] };
@@ -505,6 +513,19 @@ static UIButton* MakeThumbButton( UIView* view, NSString* letter, const char* na
     }];
     return MakeRoundButton( view, [letter stringByAppendingString:@"3"], name,
                             [glyph imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal] );
+}
+
+// Shrinks the controls on screens smaller than an iPad mini's, so they don't
+// cover the game on an iPhone. The iPad mini and bigger screens keep the sizes.
+static void ScaleTouchControls( UIView* view )
+{
+    const CGFloat IPAD_MINI_HEIGHT = 744.0;
+    const CGFloat MIN_SCALE = 0.7;
+    const CGFloat shortSide = MIN( view.bounds.size.width, view.bounds.size.height );
+    s_Scale = MIN( 1.0, MAX( MIN_SCALE, shortSide / IPAD_MINI_HEIGHT ) );
+    DPAD_SIZE = Scaled( 200.0 );
+    DPAD_ARM_WIDTH = Scaled( 72.0 );
+    ROUND_BUTTON_SIZE = Scaled( 72.0 );
 }
 
 static void CreateStartButton( SDL_Window* window )
@@ -517,6 +538,7 @@ static void CreateStartButton( SDL_Window* window )
         SDL_Log( "Touch controls: No view to add the Start button to" );
         return;
     }
+    ScaleTouchControls( view );
 
     // Behind everything else, so the buttons get their touches first
     s_StickZone = [[SRR2StickZone alloc] init];
@@ -532,8 +554,8 @@ static void CreateStartButton( SDL_Window* window )
     s_ButtonTargets = [NSMutableArray array];
     UILayoutGuide* safeArea = view.safeAreaLayoutGuide;
 
-    UIButton* startButton = MakeButton( view, @"START", "Start", false, 84.0 );
-    UIButton* backButton = MakeButton( view, @"BACK", "Back", false, 84.0 );
+    UIButton* startButton = MakeButton( view, @"START", "Start", false, Scaled( 84.0 ), Scaled( 36.0 ) );
+    UIButton* backButton = MakeButton( view, @"BACK", "Back", false, Scaled( 84.0 ), Scaled( 36.0 ) );
     UIButton* leftThumb = MakeThumbButton( view, @"L", "LeftThumb" );
     UIButton* rightThumb = MakeThumbButton( view, @"R", "Black" );
 
@@ -564,12 +586,12 @@ static void CreateStartButton( SDL_Window* window )
         CGPathCloseSubpath( path );
     } );
     // Neighbours are 1.41 * 64 apart, a bit more than a button
-    const CGFloat spacing = 2.0 * 64.0;
+    const CGFloat spacing = 2.0 * Scaled( 64.0 );
     UILayoutGuide* diamond = [[UILayoutGuide alloc] init];
     [view addLayoutGuide:diamond];
     [NSLayoutConstraint activateConstraints:@[
-        [diamond.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-40.0],
-        [diamond.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-40.0],
+        [diamond.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-Scaled( 40.0 )],
+        [diamond.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-Scaled( 40.0 )],
         [diamond.widthAnchor constraintEqualToConstant:spacing + ROUND_BUTTON_SIZE],
         [diamond.heightAnchor constraintEqualToConstant:spacing + ROUND_BUTTON_SIZE],
         [triangleButton.centerXAnchor constraintEqualToAnchor:diamond.centerXAnchor],
@@ -586,23 +608,23 @@ static void CreateStartButton( SDL_Window* window )
     s_DPad = [[SRR2DPadView alloc] init];
     [view addSubview:s_DPad];
     [NSLayoutConstraint activateConstraints:@[
-        [s_DPad.leadingAnchor constraintEqualToAnchor:safeArea.leadingAnchor constant:40.0],
-        [s_DPad.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-40.0],
+        [s_DPad.leadingAnchor constraintEqualToAnchor:safeArea.leadingAnchor constant:Scaled( 40.0 )],
+        [s_DPad.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-Scaled( 40.0 )],
         [s_DPad.widthAnchor constraintEqualToConstant:DPAD_SIZE],
         [s_DPad.heightAnchor constraintEqualToConstant:DPAD_SIZE]
     ]];
 
     // Back and Start at the bottom centre, either side of the middle
     [NSLayoutConstraint activateConstraints:@[
-        [backButton.trailingAnchor constraintEqualToAnchor:safeArea.centerXAnchor constant:-8.0],
-        [backButton.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-24.0],
-        [startButton.leadingAnchor constraintEqualToAnchor:safeArea.centerXAnchor constant:8.0],
-        [startButton.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-24.0],
+        [backButton.trailingAnchor constraintEqualToAnchor:safeArea.centerXAnchor constant:-Scaled( 8.0 )],
+        [backButton.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-Scaled( 24.0 )],
+        [startButton.leadingAnchor constraintEqualToAnchor:safeArea.centerXAnchor constant:Scaled( 8.0 )],
+        [startButton.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-Scaled( 24.0 )],
         // Stick clicks at the bottom, beside the sticks and face buttons
-        [leftThumb.leadingAnchor constraintEqualToAnchor:safeArea.leadingAnchor constant:300.0],
-        [rightThumb.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-300.0],
-        [leftThumb.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-24.0],
-        [rightThumb.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-24.0]
+        [leftThumb.leadingAnchor constraintEqualToAnchor:safeArea.leadingAnchor constant:Scaled( 300.0 )],
+        [rightThumb.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-Scaled( 300.0 )],
+        [leftThumb.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-Scaled( 24.0 )],
+        [rightThumb.bottomAnchor constraintEqualToAnchor:safeArea.bottomAnchor constant:-Scaled( 24.0 )]
     ]];
 
     // Above the face buttons, at the right edge
