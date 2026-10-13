@@ -601,7 +601,7 @@ if(APPLE)
 	option(SRR2_FETCH_ART "Download the UI art from the official release if art/ is missing" ON)
 	if(SRR2_FETCH_ART AND NOT EXISTS "${CMAKE_SOURCE_DIR}/art/frontend/scrooby/ingame.p3d")
 		execute_process(
-			COMMAND sh "${CMAKE_SOURCE_DIR}/scripts/fetch-art.sh" ${SRR2_REGION}
+			COMMAND ${SRR2_JUST} --justfile "${CMAKE_SOURCE_DIR}/justfile" fetch-art
 			RESULT_VARIABLE SRR2_FETCH_ART_RESULT
 		)
 		if(NOT SRR2_FETCH_ART_RESULT EQUAL 0)
@@ -615,7 +615,7 @@ if(APPLE)
 				"$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>$<$<NOT:$<PLATFORM_ID:iOS>>:/Resources>/art"
 		)
 	else()
-		message(WARNING "No art folder found, the custom UI art won't be bundled and the game crashes in the pause menu. Run scripts/fetch-art.sh to download it.")
+		message(WARNING "No art folder found, the custom UI art won't be bundled and the game crashes in the pause menu. Run just fetch-art to download it.")
 	endif()
 endif()
 

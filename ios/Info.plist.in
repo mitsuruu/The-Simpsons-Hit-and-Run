@@ -24,7 +24,7 @@
 	<array>
 		<string>${SRR2_IOS_PLATFORM}</string>
 	</array>
-	<!-- Compiled by scripts/compile-app-icon.sh, the files are the fallback for iOS 25 and older -->
+	<!-- Compiled by the app-icon recipe in the justfile, the files are the fallback for iOS 25 and older -->
 	<key>CFBundleIcons</key>
 	<dict>
 		<key>CFBundlePrimaryIcon</key>

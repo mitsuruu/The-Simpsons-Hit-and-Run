@@ -33,16 +33,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install tools
-        run: brew install ninja pkg-config
+        run: brew install just ninja pkg-config
 
       - name: Cache the dependencies
         uses: actions/cache@v4
         with:
           path: build/ios-deps
-          key: ios-deps-${{ runner.os }}-${{ hashFiles('ios/build-deps.sh') }}
+          key: ios-deps-${{ runner.os }}-${{ hashFiles('justfile') }}
 
       - name: Build the unsigned .ipa
-        run: ios/build-ipa.sh
+        run: just build-ios
 
       # The build always says SRR2_VERSION, SideStore only offers an update when
       # the version in the source is different from the installed one
@@ -57,7 +57,7 @@ jobs:
         id: package
         run: |
           rm -rf stamp && mkdir stamp
-          unzip -q build/SimpsonsNTSC-unsigned.ipa -d stamp
+          unzip -q build/Simpsons-unsigned.ipa -d stamp
           plist=$(echo stamp/Payload/*.app/Info.plist)
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" "$plist"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$plist"
@@ -99,11 +99,11 @@ jobs:
             --arg sha "$SHA" \
             '{
               name: "The Simpsons: Hit & Run",
-              identifier: "com.radical.simpsons.source",
+              identifier: "com.freeradical.hitandrun.source",
               sourceURL: "https://github.com/\($repo)/releases/latest/download/sidestore.json",
               apps: [{
                 name: "The Simpsons: Hit & Run",
-                bundleIdentifier: "com.radical.simpsons.NTSC",
+                bundleIdentifier: "com.freeradical.hitandrun",
                 developerName: "Radical Entertainment",
                 subtitle: "iOS port of The Simpsons: Hit & Run",
                 localizedDescription: "The Simpsons: Hit & Run for iOS. Game data is not included, copy it into the app through the Files app or Finder.",

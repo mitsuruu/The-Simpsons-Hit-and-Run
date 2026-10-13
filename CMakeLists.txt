@@ -40,8 +40,9 @@ if(APPLE)
 	# Prefer OpenAL Soft over Apple's deprecated OpenAL framework
 	set(CMAKE_FIND_FRAMEWORK LAST)
 
-	# The app icon is compiled by scripts/compile-app-icon.sh, its name is used
+	# The app icon is compiled by the app-icon recipe in the justfile, its name is used
 	# by the Info.plist templates
+	find_program(SRR2_JUST just REQUIRED)
 	set(SRR2_APP_ICON "${CMAKE_SOURCE_DIR}/ios/icon/Simpsons Hit and Run.icon")
 	# The name in the menu bar and the Dock on macOS, the Dock uses the name of
 	# the app file otherwise. Substituted into Info.plist unescaped.
@@ -55,7 +56,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	set(SRR2_P3D_PDDI "GLES2" CACHE STRING "Pure3D PDDI implementation" FORCE)
 	set(SRR2_BUILD_TESTS OFF CACHE BOOL "Build sample programs for internal libraries" FORCE)
 	set(SRR2_IOS_TEAM_ID "" CACHE STRING "Apple development team ID used to sign the iOS app")
-	set(SRR2_IOS_BUNDLE_ID "com.radical.simpsons.${SRR2_REGION}" CACHE STRING "iOS app bundle identifier")
+	set(SRR2_IOS_BUNDLE_ID "com.freeradical.hitandrun" CACHE STRING "iOS app bundle identifier")
 	# Substituted into ios/Info.plist.in
 	if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
 		set(SRR2_IOS_PLATFORM "iPhoneSimulator")
@@ -81,6 +82,12 @@ else()
 	set(SDL_LIBRARY SDL2::SDL2 SDL2::SDL2main)
 endif()
 find_package(PNG REQUIRED)
+if(APPLE AND TARGET ZLIB::ZLIB)
+	# PNG needs zlib, which is in the SDK. FindZLIB adds the SDK's usr/include as
+	# a system include directory, it gets searched before libc++'s headers and
+	# breaks <cmath>. The SDK is searched anyway.
+	set_property(TARGET ZLIB::ZLIB PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
+endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(OpenAL REQUIRED)
@@ -226,8 +233,8 @@ if(APPLE)
 		MACOSX_BUNDLE TRUE
 		OUTPUT_NAME ${SRR2_FILENAME}
 		MACOSX_BUNDLE_BUNDLE_NAME "${SRR2_PLIST_TITLE}"
-		MACOSX_BUNDLE_GUI_IDENTIFIER "com.radical.simpsons.${SRR2_REGION}"
-		XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.radical.simpsons.${SRR2_REGION}"
+		MACOSX_BUNDLE_GUI_IDENTIFIER "com.freeradical.hitandrun"
+		XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.freeradical.hitandrun"
 		MACOSX_BUNDLE_BUNDLE_VERSION ${SRR2_VERSION}
 		MACOSX_BUNDLE_SHORT_VERSION_STRING ${SRR2_VERSION}
 	)
@@ -285,10 +292,10 @@ if(APPLE)
 	endif()
 	file(GLOB_RECURSE SRR2_APP_ICON_SOURCES "${SRR2_APP_ICON}/*")
 	add_custom_command(OUTPUT ${SRR2_ICON_FILES}
-		COMMAND sh "${CMAKE_SOURCE_DIR}/scripts/compile-app-icon.sh"
+		COMMAND ${SRR2_JUST} --justfile "${CMAKE_SOURCE_DIR}/justfile" app-icon
 			"${SRR2_APP_ICON}" ${SRR2_ICON_PLATFORM} ${SRR2_ICON_MIN_VERSION}
 			"${SRR2_ICON_DIR}" ${SRR2_ICON_DEVICES}
-		DEPENDS "${CMAKE_SOURCE_DIR}/scripts/compile-app-icon.sh" ${SRR2_APP_ICON_SOURCES}
+		DEPENDS "${CMAKE_SOURCE_DIR}/justfile" ${SRR2_APP_ICON_SOURCES}
 		VERBATIM
 	)
 	add_custom_target(${PROJECT_NAME}_icon DEPENDS ${SRR2_ICON_FILES})
